@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>tim1e · 多出来的一秒</title>
+<meta name="description" content="tim1e：一个关于「多出来的一秒」的浏览器小游戏。每绕钟面一圈，过去的你就会变成回声，在钟面上一遍遍重演。">
+<meta name="theme-color" content="#f3ecdd">
+<meta property="og:title" content="tim1e · 多出来的一秒">
+<meta property="og:description" content="每 6 秒一圈。别撞上过去的自己。">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#manual">跳到玩法说明</a>
+
+<main>
+  <!-- ================= 舞台 ================= -->
+  <section id="stage" class="stage" aria-label="tim1e 游戏">
+    <canvas id="stageCanvas" tabindex="-1" aria-label="钟面游戏画布：粉色的 1 是你，蓝色的 1 是过去的你留下的回声，黄色小刻度可以吃"></canvas>
+
+    <div class="hud" id="hud" hidden>
+      <div class="chip score"><span class="label">刻度</span><b id="hudScore">0</b></div>
+      <div class="chip energy">
+        <div class="row"><span class="label">余秒</span><b id="hudEnergyNum">8.0</b></div>
+        <div class="bar" aria-hidden="true"><i id="hudEnergy"></i></div>
+      </div>
+      <div class="chip loop"><span class="label">第几圈</span><b id="hudLoop">1</b></div>
+      <div class="chip charge ready" id="hudCharge" title="备用的一秒：撞上回声时自动倒带 1 秒">
+        <span class="label">备用一秒</span><b id="hudChargeTxt">就绪</b>
+      </div>
+      <button class="chip icon-btn" id="btnPause" type="button" aria-label="暂停（Esc / P）">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="3" width="4" height="14" rx="1.5"/><rect x="12" y="3" width="4" height="14" rx="1.5"/></svg>
+      </button>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <!-- 标题 -->
+    <div class="overlay" id="titleCard">
+      <div class="card title">
+        <p class="kicker">a tiny game about one extra second</p>
+        <h1 class="visually-hidden">tim1e</h1>
+        <svg class="wordmark" viewBox="0 0 400 160" role="img" aria-label="tim1e">
+          <g class="wm-layer wm-shadow" transform="translate(5 4)">
+            <path d="M40 30 V106 q0 16 16 16 h12 M18 62 H68"/>
+            <path d="M100 66 V122"/><circle cx="100" cy="32" r="11"/>
+            <path d="M140 122 V84 a22 22 0 0 1 44 0 V122 M184 84 a22 22 0 0 1 44 0 V122"/>
+            <path class="wm-one" d="M254 52 L276 32 V122"/>
+            <path d="M312 92 H370 A30 30 0 1 0 361 113"/>
+          </g>
+          <g class="wm-layer wm-main">
+            <path d="M40 30 V106 q0 16 16 16 h12 M18 62 H68"/>
+            <path d="M100 66 V122"/><circle cx="100" cy="32" r="11"/>
+            <path d="M140 122 V84 a22 22 0 0 1 44 0 V122 M184 84 a22 22 0 0 1 44 0 V122"/>
+            <path class="wm-one" d="M254 52 L276 32 V122"/>
+            <path d="M312 92 H370 A30 30 0 1 0 361 113"/>
+          </g>
+        </svg>
+        <p class="tagline">多出来的那一秒，逃进了钟面。</p>
+        <p class="lede">每 <b>6 秒</b>是一圈。每绕完一圈，<em class="t-pink">你</em>刚刚走过的路就会变成一个<em class="t-blue">回声</em>，跟着指针一遍遍重演。吃<em class="t-gold">黄色刻度</em>续命，别撞上过去的自己。</p>
+        <div class="cta">
+          <button class="btn primary" id="btnStart" type="button">开始第一圈 <span aria-hidden="true">→</span></button>
+        </div>
+        <p class="how only-mouse">鼠标移动 / 方向键 / WASD 操控 · <kbd>Esc</kbd> 暂停 · <kbd>M</kbd> 静音 · <kbd>Enter</kbd> 开始</p>
+        <p class="how only-touch">在屏幕任意处按住拖动——相对拖动，手指不会挡住角色</p>
+        <div class="opts" role="group" aria-label="设置">
+          <button type="button" class="opt" data-opt="sound" aria-pressed="true">声音 <span class="state">开</span></button>
+          <button type="button" class="opt" data-opt="relaxed" aria-pressed="false">从容模式 <span class="state">关</span></button>
+          <button type="button" class="opt" data-opt="reduce" aria-pressed="false">减少动态 <span class="state">关</span></button>
+        </div>
+        <p class="best" id="titleBest" hidden>本机最佳：<b>0</b> 刻度</p>
+      </div>
+      <a class="scroll-cue" href="#manual">说明书 · 回声档案 <span aria-hidden="true">↓</span></a>
+    </div>
+
+    <!-- 暂停 -->
+    <div class="overlay dim" id="pauseCard" hidden>
+      <div class="card small">
+        <p class="kicker">paused</p>
+        <h2>暂停中</h2>
+        <p>时间也在等你。回声们停在原地，一动不动。</p>
+        <div class="cta">
+          <button class="btn primary" id="btnResume" type="button">继续</button>
+          <button class="btn" id="btnQuit" type="button">回到标题</button>
+        </div>
+        <div class="opts" role="group" aria-label="设置">
+          <button type="button" class="opt" data-opt="sound" aria-pressed="true">声音 <span class="state">开</span></button>
+          <button type="button" class="opt" data-opt="relaxed" aria-pressed="false">从容模式 <span class="state">关</span></button>
+          <button type="button" class="opt" data-opt="reduce" aria-pressed="false">减少动态 <span class="state">关</span></button>
+        </div>
+        <p class="fine">从容模式：余秒流逝 ×0.6、碰撞判定 ×0.8，下一局生效。</p>
+      </div>
+    </div>
+
+    <!-- 结算 -->
+    <div class="overlay dim" id="overCard" hidden>
+      <div class="card wide">
+        <div class="over-grid">
+          <figure class="poster-wrap">
+            <img class="poster" id="overPoster" alt="本局的回声印刷品：每一圈的轨迹以不同油墨叠印在钟面上">
+            <figcaption class="only-touch">也可以长按图片保存</figcaption>
+          </figure>
+          <div class="over-info">
+            <p class="kicker" id="overKicker">echo print № 001</p>
+            <h2 id="overTitle">你撞上了过去的自己</h2>
+            <p id="overLine"></p>
+            <p><span class="badge" id="overBadge" hidden>新纪录！</span></p>
+            <div class="stats">
+              <div class="stat"><span>刻度</span><b id="ovScore">0</b></div>
+              <div class="stat"><span>完整圈数</span><b id="ovLoops">0</b></div>
+              <div class="stat"><span>抹去回声</span><b id="ovErased">0</b></div>
+              <div class="stat"><span>本机最佳</span><b id="ovBest">0</b></div>
+            </div>
+            <div class="cta left">
+              <button class="btn primary" id="btnRetry" type="button">再来一圈</button>
+              <a class="btn" id="btnSave" role="button" aria-disabled="true" download="tim1e-echo-print.png">保存印刷品</a>
+              <button class="btn ghost" id="btnHome" type="button">标题</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <noscript><div class="overlay"><div class="card small"><h2>需要 JavaScript</h2><p>tim1e 的钟面完全在浏览器里运行，请启用 JavaScript 后刷新。</p></div></div></noscript>
+  </section>
+
+  <!-- ================= 说明书 ================= -->
+  <section id="manual" class="section manual">
+    <p class="kicker">manual · 说明书</p>
+    <h2>关于多出来的那一秒</h2>
+    <p class="story">钟表匠在拼写 <code>time</code> 时手一抖，多按了一个 <b class="t-pink">1</b>。这枚多余的一秒从单词里掉了出来，滚进了钟面。它没有属于自己的格子，只能一圈一圈地走——而它走过的每一圈，都会留下一个不肯离开的回声。</p>
+
+    <ol class="steps">
+      <li class="step">
+        <svg class="ill" viewBox="0 0 200 130" aria-hidden="true">
+          <circle class="face" cx="100" cy="65" r="58"/>
+          <path class="dash-p" d="M70 88 C 90 92, 120 70, 132 52"/>
+          <g transform="translate(64 84)"><path class="o-y" d="M-6 -5 L1 -12 V12" transform="translate(2 2)"/><path class="o-p" d="M-6 -5 L1 -12 V12"/></g>
+          <g transform="translate(140 46) rotate(-30)"><rect class="shard" x="-11" y="-4" width="22" height="8" rx="4"/></g>
+          <text class="lbl" x="150" y="28">+1</text>
+        </svg>
+        <h3>吃刻度，续余秒</h3>
+        <p>黄色小刻度每枚 <b>+1 分</b>、<b>+2.2 余秒</b>。余秒一直在流逝，圈数越多流得越快，归零就结束。</p>
+      </li>
+      <li class="step">
+        <svg class="ill" viewBox="0 0 200 130" aria-hidden="true">
+          <circle class="face" cx="100" cy="65" r="58"/>
+          <path class="arc-p" d="M100 3 A62 62 0 1 1 46 96"/>
+          <path class="dash-b" d="M70 60 C 80 30, 120 30, 128 62 S 110 100, 86 92"/>
+          <g transform="translate(70 62)"><path class="o-g" d="M-6 -5 L1 -12 V12" transform="translate(2 2)"/><path class="o-b" d="M-6 -5 L1 -12 V12"/></g>
+          <g transform="translate(88 92)"><path class="o-y" d="M-6 -5 L1 -12 V12" transform="translate(2 2)"/><path class="o-p" d="M-6 -5 L1 -12 V12"/></g>
+          <text class="lbl" x="150" y="122">6s</text>
+        </svg>
+        <h3>每 6 秒，你变成回声</h3>
+        <p>外圈的粉色弧线走满 = 一圈。你这一圈的路线（粉色虚线）会在下一圈变成<b class="t-blue">蓝色回声</b>，与指针同步，永远重演。</p>
+      </li>
+      <li class="step">
+        <svg class="ill" viewBox="0 0 200 130" aria-hidden="true">
+          <circle class="face" cx="100" cy="65" r="58"/>
+          <g transform="translate(84 68)"><path class="o-y" d="M-6 -5 L1 -12 V12" transform="translate(2 2)"/><path class="o-p" d="M-6 -5 L1 -12 V12"/></g>
+          <g transform="translate(118 64)"><path class="o-g" d="M-6 -5 L1 -12 V12" transform="translate(2 2)"/><path class="o-b" d="M-6 -5 L1 -12 V12"/></g>
+          <path class="zap" d="M100 40 L94 58 L104 60 L97 80"/>
+          <circle class="ghost" cx="60" cy="40" r="12"/>
+          <g transform="translate(60 40)" opacity=".5"><path class="o-b" d="M-6 -5 L1 -12 V12"/></g>
+        </svg>
+        <h3>别撞上过去的自己</h3>
+        <p>新回声诞生后有 0.75 秒的<b>虚线预告</b>，之后碰到就结束。站着不动最危险——下一圈的你，会撞上原地的自己。</p>
+      </li>
+      <li class="step">
+        <svg class="ill" viewBox="0 0 200 130" aria-hidden="true">
+          <circle class="face" cx="100" cy="65" r="58"/>
+          <g class="rays" transform="translate(76 66)">
+            <path d="M0 -26 V-20 M0 20 V26 M-26 0 H-20 M20 0 H26 M-18 -18 L-14 -14 M14 14 L18 18 M18 -18 L14 -14 M-14 14 L-18 18"/>
+          </g>
+          <g transform="translate(76 66) scale(1.5)"><path class="o-p" d="M-6 -5 L1 -12 V12" transform="translate(2 2)"/><path class="o-gold" d="M-6 -5 L1 -12 V12"/></g>
+          <g transform="translate(136 66)">
+            <path class="rew" d="M14 -8 A16 16 0 1 0 16 4"/>
+            <path class="rew-head" d="M8 -14 L15 -7 L6 -3"/>
+            <text class="lbl small" x="0" y="5" text-anchor="middle">1s</text>
+          </g>
+        </svg>
+        <h3>金色的 1 &amp; 备用的一秒</h3>
+        <p>回声≥2 时，每 3 圈出现<b class="t-gold">金色的 1</b>：吃掉它抹去最旧的回声、+3 分。开局有一枚<b>备用的一秒</b>，撞上回声时自动倒带 1 秒，每 4 圈补充一次。</p>
+      </li>
+    </ol>
+
+    <div class="controls">
+      <div class="ctl">
+        <h3>桌面</h3>
+        <ul>
+          <li><b>移动</b>：鼠标指向哪里，1 就走向哪里；或用 方向键 / WASD</li>
+          <li><b>暂停</b>：<kbd>Esc</kbd> 或 <kbd>P</kbd>；切走标签页也会自动暂停</li>
+          <li><b>开始 / 再来</b>：<kbd>Enter</kbd> 或 <kbd>Space</kbd></li>
+          <li><b>静音</b>：<kbd>M</kbd></li>
+        </ul>
+      </div>
+      <div class="ctl">
+        <h3>触屏</h3>
+        <ul>
+          <li><b>移动</b>：在屏幕任意处按住拖动。这是<em>相对拖动</em>——手指往哪划，1 就往哪走，不用按在它身上</li>
+          <li><b>暂停</b>：右上角的 ❚❚ 按钮</li>
+          <li><b>保存印刷品</b>：结算页按钮，或长按图片</li>
+        </ul>
+      </div>
+      <div class="ctl">
+        <h3>照顾自己</h3>
+        <ul>
+          <li><b>从容模式</b>：余秒流逝更慢、碰撞判定更小</li>
+          <li><b>减少动态</b>：关闭震屏、闪烁、扫描线与大部分粒子；默认跟随系统的「减少动态效果」设置</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 档案 ================= -->
+  <section id="archive" class="section archive">
+    <p class="kicker">archive · 回声档案</p>
+    <h2>你留下的轨迹</h2>
+    <p>每一局结束，所有圈的轨迹会被叠印成一张「回声印刷品」。最近 6 张缩略图保存在这台设备的浏览器里（localStorage），不会上传到任何地方。</p>
+    <div class="archive-stats">
+      <div class="stat"><span>本机最佳</span><b id="arBest">0</b></div>
+      <div class="stat"><span>总局数</span><b id="arRuns">0</b></div>
+      <div class="stat"><span>累计刻度</span><b id="arTotal">0</b></div>
+    </div>
+    <div class="prints" id="arGrid"></div>
+    <p class="empty" id="arEmpty">还没有印刷品。去钟面上走一圈吧。</p>
+    <p><button class="btn ghost" id="btnClear" type="button">清空档案</button></p>
+  </section>
+</main>
+
+<footer class="foot">
+  <p><b>tim1e</b> · 一个关于多出来的一秒的小游戏。所有逻辑都在你的浏览器里运行，无追踪、无后台。</p>
+  <p class="fine">All shapes are drawn with code. All sounds are synthesized live.</p>
+</footer>
+
+<script src="js/core.js"></script>
+<script src="js/render.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tim1e · 玩法自检</title>
+<style>
+  body { font-family: ui-monospace, Menlo, Consolas, monospace; background: #f3ecdd; color: #1e1c3a; padding: 24px; }
+  pre { white-space: pre-wrap; padding: 16px; border: 2px solid #1e1c3a; border-radius: 12px; background: #f9f4e9; }
+  pre.pass { box-shadow: 6px 6px 0 #00a383; }
+  pre.fail { box-shadow: 6px 6px 0 #ff4a8a; }
+</style>
+</head>
+<body>
+<h1>tim1e · 玩法自检</h1>
+<p>只测试 <code>js/core.js</code> 的确定性逻辑（回声重演、倒带、补给、边界）。</p>
+<pre id="out">运行中…</pre>
+<script src="../js/core.js"></script>
+<script src="selftest.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "tim1e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "tim1e — 多出来的一秒：纯静态浏览器小游戏（无依赖、无构建）",
+  "scripts": {
+    "test": "node tests/selftest.js",
+    "serve": "python3 -m http.server 8080"
+  }
+}
